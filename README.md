@@ -1,37 +1,37 @@
 # Chat App
 
-Ứng dụng chat realtime gồm 2 phần: **Frontend (React + Vite + TailwindCSS)** và **Backend (Node.js + Express + MongoDB)**.
+A realtime chat application with two main parts: **Frontend (React + Vite + TailwindCSS)** and **Backend (Node.js + Express + MongoDB)**.
 
-## Cài đặt
+## Installation
 
 ```bash
-# Cài đặt dependencies cho frontend
+# Install frontend dependencies
 cd client
 npm install
 
-# Cài đặt dependencies cho backend
+# Install backend dependencies
 cd ../server
 npm install
 ```
 
-## Chạy dự án
+## Running the Project
 
 ```bash
-# Chạy frontend
+# Start frontend
 cd client
 npm run dev
 
-# Chạy backend
+# Start backend
 cd ../server
 npm start
 ```
 
-## Cấu hình
+## Configuration
 
-- Tạo file `.env` trong thư mục `server/` theo mẫu `.env.example` (nếu có).
-- Đảm bảo đã cài đặt MongoDB hoặc sử dụng MongoDB Atlas.
+- Create a `.env` file in the `server/` directory based on the `.env.example` (if available).
+- Make sure you have MongoDB installed or use MongoDB Atlas.
 
-## Thư mục chính
+## Main Directories
 
-- `client/`: Source code giao diện người dùng (React)
-- `server/`: Source code backend (Express)
+- `client/`: Frontend source code (React)
+- `server/`: Backend source code (Express)
