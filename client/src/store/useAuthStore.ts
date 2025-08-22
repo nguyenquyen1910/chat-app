@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { AxiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
+import { io, Socket } from "socket.io-client";
+
+const BASE_URL =
+  import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 
 interface AuthUser {
   _id: string;
@@ -19,6 +23,10 @@ interface AuthStore {
   signup: (data: SignupData) => Promise<void>;
   login: (data: LoginData) => Promise<void>;
   logout: () => Promise<void>;
+  socket: Socket | null;
+  onlineUsers: string[];
+  connectSocket: () => void;
+  disconnectSocket: () => void;
 }
 
 interface SignupData {
@@ -32,16 +40,19 @@ interface LoginData {
   password: string;
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
+export const useAuthStore = create<AuthStore>((set, get) => ({
   authUser: null,
   isSigningUp: false,
   isLoggingIn: false,
   isCheckingAuth: true,
+  socket: null,
+  onlineUsers: [],
 
   checkAuth: async () => {
     try {
       const res = await AxiosInstance.get("/auth/check");
       set({ authUser: res.data.user });
+      get().connectSocket();
     } catch (error) {
       console.log(error);
       set({ authUser: null });
@@ -56,6 +67,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const res = await AxiosInstance.post("/auth/signup", data);
       set({ authUser: res.data });
       toast.success("Signup successful");
+      get().connectSocket();
     } catch (error) {
       console.log(error);
       toast.error("Something went wrong");
@@ -70,6 +82,7 @@ export const useAuthStore = create<AuthStore>((set) => ({
       const res = await AxiosInstance.post("/auth/login", data);
       set({ authUser: res.data });
       toast.success("Login successful");
+      get().connectSocket();
     } catch (error) {
       console.log(error);
       toast.error("Invalid credentials");
@@ -81,12 +94,35 @@ export const useAuthStore = create<AuthStore>((set) => ({
   logout: async () => {
     try {
       await AxiosInstance.post("/auth/logout");
+      get().disconnectSocket();
       set({ authUser: null });
       toast.success("Logged out successfully");
     } catch (error) {
       console.log(error);
       toast.error("Something went wrong");
     }
+  },
+
+  connectSocket: () => {
+    const { authUser } = get();
+    if (!authUser || get().socket?.connected) return;
+
+    const socket = io(BASE_URL, {
+      query: {
+        userId: authUser._id,
+      },
+    });
+    socket.connect();
+
+    set({ socket: socket });
+
+    socket.on("getOnlineUsers", (userIds) => {
+      set({ onlineUsers: userIds });
+    });
+  },
+
+  disconnectSocket: () => {
+    if (get().socket?.connected) get().socket?.disconnect();
   },
 }));
 
