@@ -21,13 +21,24 @@ export const getMessages = async (req, res) => {
   try {
     const { id: userToChatId } = req.params;
     const myId = req.user._id;
+    const { limit, sort } = req.query;
 
-    const messages = await Message.find({
+    let query = Message.find({
       $or: [
         { senderId: myId, receiverId: userToChatId },
         { senderId: userToChatId, receiverId: myId },
       ],
     });
+
+    if (sort) {
+      query = query.sort(sort);
+    }
+
+    if (limit) {
+      query = query.limit(parseInt(limit));
+    }
+
+    const messages = await query;
 
     res.status(200).json(messages);
   } catch (error) {
@@ -101,6 +112,32 @@ export const markMessageAsRead = async (req, res) => {
     res.status(200).json(message);
   } catch (error) {
     console.log("Error in markMessageAsRead controller: ", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const markThreadAsRead = async (req, res) => {
+  try {
+    const myId = req.user._id;
+    const { userId } = req.params;
+
+    const result = await Message.updateMany(
+      { senderId: userId, receiverId: myId, isRead: { $ne: true } },
+      { $set: { isRead: true, readAt: new Date() } }
+    );
+
+    const senderSocketId = getReceiverSocketId(userId);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("thread_read", {
+        by: myId,
+        with: userId,
+        at: new Date(),
+      });
+    }
+
+    res.status(200).json({ update: result.modifiedCount });
+  } catch (error) {
+    console.log("Error in markThreadAsRead controller: ", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };

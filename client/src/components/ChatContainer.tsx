@@ -17,6 +17,7 @@ const ChatContainer = () => {
     typingUsers,
     subcribeToMessage,
     unsubcribeFromMessage,
+    markMessageAsRead,
   } = useChatStore();
   const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef<HTMLDivElement>(null);
@@ -25,6 +26,8 @@ const ChatContainer = () => {
     if (!selectedUser?._id || !socket?.connected) return;
     getMessages(selectedUser._id);
     subcribeToMessage();
+
+    markMessageAsRead(selectedUser._id);
     return () => unsubcribeFromMessage();
   }, [selectedUser?._id, socket?.connected]);
 
@@ -101,9 +104,7 @@ const ChatContainer = () => {
         {/* Typing Indicator */}
         {typingUsers.length > 0 && selectedUser && (
           <div className="flex justify-start">
-            <div className="bg-gray-200 rounded-lg p-3">
-              <TypingIndicator userName={selectedUser.fullName} />
-            </div>
+            <TypingIndicator />
           </div>
         )}
       </div>

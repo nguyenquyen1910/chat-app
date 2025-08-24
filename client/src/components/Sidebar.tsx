@@ -5,8 +5,15 @@ import { Users } from "lucide-react";
 import useAuthStore from "../store/useAuthStore";
 
 const Sidebar = () => {
-  const { getUsers, selectedUser, setSelectedUser, isUsersLoading, users } =
-    useChatStore();
+  const {
+    getUsers,
+    selectedUser,
+    setSelectedUser,
+    isUsersLoading,
+    lastMessageByUserId,
+    unreadCountByUserId,
+    getSortedUsers,
+  } = useChatStore();
 
   const { onlineUsers } = useAuthStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
@@ -15,9 +22,10 @@ const Sidebar = () => {
     getUsers();
   }, [getUsers]);
 
+  const sortedUsers = getSortedUsers();
   const filteredUsers = showOnlineOnly
-    ? users.filter((user) => onlineUsers.includes(user._id))
-    : users;
+    ? sortedUsers.filter((user) => onlineUsers.includes(user._id))
+    : sortedUsers;
 
   if (isUsersLoading) return <SidebarSkeleton />;
   return (
@@ -79,10 +87,25 @@ const Sidebar = () => {
             {/* User info - only visible on larger screens */}
             <div className="hidden lg:block text-left min-w-0">
               <div className="font-medium truncate">{user.fullName}</div>
-              <div className="text-sm text-zinc-400">
-                {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+
+              <div
+                className={`text-sm truncate ${
+                  (unreadCountByUserId[user._id] || 0) > 0
+                    ? "font-semibold text-base-content"
+                    : "text-zinc-400"
+                }`}
+              >
+                {lastMessageByUserId[user._id]?.isFromMe
+                  ? `You: ${lastMessageByUserId[user._id]?.text}`
+                  : lastMessageByUserId[user._id]?.text}
               </div>
             </div>
+
+            {(unreadCountByUserId[user._id] || 0) > 0 && (
+              <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-primary text-primary-content text-xs">
+                {unreadCountByUserId[user._id]}
+              </span>
+            )}
           </button>
         ))}
 

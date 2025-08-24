@@ -5,6 +5,7 @@ import {
   getMessages,
   sendMessage,
   markMessageAsRead,
+  markThreadAsRead,
 } from "../controllers/messageController.js";
 
 const router = express.Router();
@@ -14,5 +15,6 @@ router.get("/:id", protectRoute, getMessages);
 
 router.post("/send/:id", protectRoute, sendMessage);
 router.patch("/:messageId/read", protectRoute, markMessageAsRead);
+router.patch("/read-all/:userId", protectRoute, markThreadAsRead);
 
 export default router;
