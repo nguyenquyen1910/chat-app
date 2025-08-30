@@ -1,7 +1,7 @@
 import User from "../models/userModel.js";
 import cloudinary from "../lib/cloudinary.js";
 
-const updateProfile = async (req, res) => {
+export const updateProfile = async (req, res) => {
   try {
     const { profilePic } = req.body;
     const userId = req.user._id;
@@ -29,7 +29,7 @@ const updateProfile = async (req, res) => {
   }
 };
 
-const updateFullName = async (req, res) => {
+export const updateFullName = async (req, res) => {
   try {
     const { fullName } = req.body;
     const userId = req.user._id;
@@ -57,4 +57,3 @@ const updateFullName = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-export { updateProfile, updateFullName };

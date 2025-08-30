@@ -2,17 +2,80 @@ import Message from "../models/messageModel.js";
 import User from "../models/userModel.js";
 import { v2 as cloudinary } from "cloudinary";
 import { getReceiverSocketId, io } from "../lib/socket.js";
+import Conversation from "../models/conversationModel.js";
+import { normalizeParticipants } from "../lib/conversation.js";
 
 export const getUsersForSidebar = async (req, res) => {
   try {
-    const loggedInUserId = req.user._id;
-    const filteredUsers = await User.find({
-      _id: { $ne: loggedInUserId },
-    }).select("-password");
+    const me = String(req.user._id);
 
-    res.status(200).json(filteredUsers);
+    const [users, conversations] = await Promise.all([
+      User.find({ _id: { $ne: me } }).select("-password"),
+      Conversation.find({ participants: me }).lean(),
+    ]);
+
+    const convByOther = new Map();
+    for (const c of conversations) {
+      const [u1, u2] = c.participants.map(String);
+      const other = u1 === me ? u2 : u1;
+
+      const unreadCount =
+        c.unreadCount && c.unreadCount.get
+          ? c.unreadCount.get(me) || 0
+          : (c.unreadCount && c.unreadCount[me]) || 0;
+
+      console.log("Conversation debug:", {
+        conversation: c,
+        me,
+        other,
+        unreadCount: unreadCount,
+      });
+
+      convByOther.set(other, {
+        lastMessage: c.lastMessage || null,
+        unreadCount: unreadCount,
+      });
+    }
+
+    const payload = users.map((u) => {
+      const meta = convByOther.get(String(u._id)) || null;
+      return {
+        _id: u._id,
+        fullName: u.fullName,
+        email: u.email,
+        profilePic: u.profilePic,
+        createdAt: u.createdAt,
+        lastMessage: meta?.lastMessage || null,
+        unreadCount: meta?.unreadCount || 0,
+      };
+    });
+
+    payload.sort((a, b) => {
+      const at = a.lastMessage?.createdAt
+        ? new Date(a.lastMessage.createdAt).getTime()
+        : 0;
+      const bt = b.lastMessage?.createdAt
+        ? new Date(b.lastMessage.createdAt).getTime()
+        : 0;
+      return bt - at || a.fullName.localeCompare(b.fullName);
+    });
+
+    res.status(200).json(payload);
   } catch (error) {
-    console.error("Error in getUsersForSidebar: ", error.message);
+    console.log("Error in getUsersForSidebar controller: ", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getConversations = async (req, res) => {
+  try {
+    const me = String(req.user._id);
+    const cons = await Conversation.find({ participants: me })
+      .sort({ "lastMessage.createdAt": -1 })
+      .lean();
+    res.status(200).json(cons);
+  } catch (error) {
+    console.log("Error in getConversations controller: ", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -70,9 +133,70 @@ export const sendMessage = async (req, res) => {
 
     await newMessage.save();
 
+    try {
+      const participants = normalizeParticipants(senderId, receiverId);
+
+      let conversation = await Conversation.findOne({ participants });
+
+      if (!conversation) {
+        conversation = await Conversation.create({
+          participants,
+          lastMessage: {
+            text: message || (imageUrl ? "Sent an image" : ""),
+            image: imageUrl || null,
+            createdAt: new Date(),
+            senderId: senderId,
+          },
+          unreadCount: new Map([
+            [senderId.toString(), 0],
+            [receiverId.toString(), 1],
+          ]),
+        });
+      } else {
+        conversation.lastMessage = {
+          text: message || (imageUrl ? "Sent an image" : ""),
+          image: imageUrl || null,
+          createdAt: new Date(),
+          senderId: senderId,
+        };
+
+        const currentUnread =
+          conversation.unreadCount.get(receiverId.toString()) || 0;
+        conversation.unreadCount.set(receiverId.toString(), currentUnread + 1);
+
+        await conversation.save();
+      }
+    } catch (convError) {
+      console.log("Error message:", convError.message);
+    }
+
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
+      io.to(receiverSocketId).emit("conversation_updated", {
+        with: senderId,
+        lastMessage: {
+          text: newMessage.message || (newMessage.image ? "Sent an image" : ""),
+          image: newMessage.image || null,
+          createdAt: newMessage.createdAt,
+          senderId: senderId,
+        },
+        incUnreadFor: receiverId,
+      });
+    }
+
+    const senderSocketId = getReceiverSocketId(senderId);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("conversation_updated", {
+        with: receiverId,
+        lastMessage: {
+          text: newMessage.message || (newMessage.image ? "Sent an image" : ""),
+          image: newMessage.image || null,
+          createdAt: newMessage.createdAt,
+          senderId: senderId,
+        },
+        incUnreadFor: receiverId,
+      });
     }
 
     res.status(201).json(newMessage);
@@ -86,30 +210,27 @@ export const markMessageAsRead = async (req, res) => {
   try {
     const { messageId } = req.params;
     const userId = req.user._id;
+    console.log("messageId", messageId);
 
-    const message = await Message.findById(messageId);
-    if (!message) {
+    const updated = await Message.findOneAndUpdate(
+      { senderId: messageId, receiverId: userId },
+      { $set: { isRead: true, readAt: new Date() } },
+      { new: true }
+    );
+
+    if (!updated) {
       return res.status(404).json({ error: "Message not found" });
     }
 
-    if (message.receiverId.toString() !== userId.toString()) {
-      return res.status(403).json({ error: "Not authorized" });
-    }
-
-    message.isRead = true;
-    message.readAt = new Date();
-    await message.save();
-
-    const senderSocketId = getReceiverSocketId(message.senderId);
+    const senderSocketId = getReceiverSocketId(updated.senderId);
     if (senderSocketId) {
       io.to(senderSocketId).emit("message_read", {
-        messageId: message._id,
+        messageId: updated._id,
         readBy: userId,
-        readAt: new Date(),
+        readAt: updated.readAt,
       });
     }
-
-    res.status(200).json(message);
+    res.status(200).json(updated);
   } catch (error) {
     console.log("Error in markMessageAsRead controller: ", error.message);
     res.status(500).json({ error: "Internal server error" });
@@ -124,6 +245,11 @@ export const markThreadAsRead = async (req, res) => {
     const result = await Message.updateMany(
       { senderId: userId, receiverId: myId, isRead: { $ne: true } },
       { $set: { isRead: true, readAt: new Date() } }
+    );
+
+    await Conversation.updateOne(
+      { participants: normalizeParticipants(req.user._id, userId) },
+      { $set: { [`unreadCount.${req.user._id.toString()}`]: 0 } }
     );
 
     const senderSocketId = getReceiverSocketId(userId);

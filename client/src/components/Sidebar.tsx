@@ -3,29 +3,54 @@ import { useChatStore } from "../store/useChatStore";
 import SidebarSkeleton from "./skeleton/SidebarSkeleton";
 import { Users } from "lucide-react";
 import useAuthStore from "../store/useAuthStore";
+import { getHourAndMinute } from "../lib/utils";
+import { useNavigate } from "react-router-dom";
 
 const Sidebar = () => {
+  const navigate = useNavigate();
   const {
     getUsers,
     selectedUser,
     setSelectedUser,
     isUsersLoading,
-    lastMessageByUserId,
     unreadCountByUserId,
-    getSortedUsers,
+    users,
   } = useChatStore();
 
-  const { onlineUsers } = useAuthStore();
+  const handleUserSelect = (user: any) => {
+    setSelectedUser(user);
+    navigate(`/chat/${user._id}`, { replace: true });
+  };
+
+  const { onlineUsers, authUser } = useAuthStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+
+  const formatLastMessage = (user: any) => {
+    if (
+      !user.lastMessage ||
+      (!user.lastMessage.text && !user.lastMessage.image)
+    ) {
+      return "Now you can message each other";
+    }
+
+    if (user.lastMessage.image && !user.lastMessage.text) {
+      const isOwnMessage = user.lastMessage.senderId === authUser?._id;
+      return isOwnMessage ? "You: Sent an image" : "Sent an image";
+    }
+
+    const isOwnMessage = user.lastMessage.senderId === authUser?._id;
+    return isOwnMessage
+      ? `You: ${user.lastMessage.text}`
+      : user.lastMessage.text;
+  };
+
+  const filteredUsers = showOnlineOnly
+    ? users.filter((user) => onlineUsers.includes(user._id))
+    : users;
 
   useEffect(() => {
     getUsers();
   }, [getUsers]);
-
-  const sortedUsers = getSortedUsers();
-  const filteredUsers = showOnlineOnly
-    ? sortedUsers.filter((user) => onlineUsers.includes(user._id))
-    : sortedUsers;
 
   if (isUsersLoading) return <SidebarSkeleton />;
   return (
@@ -56,7 +81,7 @@ const Sidebar = () => {
         {filteredUsers.map((user) => (
           <button
             key={user._id}
-            onClick={() => setSelectedUser(user)}
+            onClick={() => handleUserSelect(user)}
             className={`
               w-full p-3 flex items-center gap-3
               hover:bg-base-300 transition-colors
@@ -85,19 +110,25 @@ const Sidebar = () => {
             </div>
 
             {/* User info - only visible on larger screens */}
-            <div className="hidden lg:block text-left min-w-0">
+            <div className="hidden lg:block text-left flex-1 min-w-0">
               <div className="font-medium truncate">{user.fullName}</div>
 
-              <div
-                className={`text-sm truncate ${
-                  (unreadCountByUserId[user._id] || 0) > 0
-                    ? "font-semibold text-base-content"
-                    : "text-zinc-400"
-                }`}
-              >
-                {lastMessageByUserId[user._id]?.isFromMe
-                  ? `You: ${lastMessageByUserId[user._id]?.text}`
-                  : lastMessageByUserId[user._id]?.text}
+              <div className="flex items-center justify-between gap-2 mt-1">
+                <div
+                  className={`text-sm truncate flex-1 ${
+                    (unreadCountByUserId[user._id] || 0) > 0
+                      ? "font-semibold text-base-content"
+                      : "text-zinc-400"
+                  }`}
+                >
+                  {formatLastMessage(user)}
+                </div>
+
+                <div className="text-xs text-zinc-500 flex-shrink-0">
+                  {user.lastMessage?.createdAt
+                    ? getHourAndMinute(user.lastMessage.createdAt)
+                    : ""}
+                </div>
               </div>
             </div>
 

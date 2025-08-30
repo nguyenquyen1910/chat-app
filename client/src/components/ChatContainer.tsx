@@ -17,7 +17,7 @@ const ChatContainer = () => {
     typingUsers,
     subcribeToMessage,
     unsubcribeFromMessage,
-    markMessageAsRead,
+    markAllMessageAsRead,
   } = useChatStore();
   const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef<HTMLDivElement>(null);
@@ -27,7 +27,7 @@ const ChatContainer = () => {
     getMessages(selectedUser._id);
     subcribeToMessage();
 
-    markMessageAsRead(selectedUser._id);
+    markAllMessageAsRead(selectedUser._id);
     return () => unsubcribeFromMessage();
   }, [selectedUser?._id, socket?.connected]);
 
@@ -61,12 +61,14 @@ const ChatContainer = () => {
             ref={messageEndRef}
           >
             <div className=" chat-image avatar">
-              <div className="size-10 rounded-full border">
+              <div className="size-10 rounded-full">
                 <img
                   src={
                     message.senderId === authUser?._id
-                      ? authUser?.profilePic || "/avatar.png"
-                      : selectedUser?.profilePic || "/avatar.png"
+                      ? authUser?.profilePic ||
+                        "https://res.cloudinary.com/dw9bbrnke/image/upload/v1750328296/453178253_471506465671661_2781666950760530985_n_k3uj5r.png"
+                      : selectedUser?.profilePic ||
+                        "https://res.cloudinary.com/dw9bbrnke/image/upload/v1750328296/453178253_471506465671661_2781666950760530985_n_k3uj5r.png"
                   }
                   alt="profile pic"
                 />

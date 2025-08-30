@@ -5,3 +5,7 @@ export function formatMessageTime(date: string) {
     hour12: false,
   });
 }
+
+export function getHourAndMinute(date: string) {
+  return new Date(date).getHours() + ":" + new Date(date).getMinutes();
+}

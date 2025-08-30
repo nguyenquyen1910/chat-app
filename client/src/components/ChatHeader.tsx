@@ -14,7 +14,10 @@ const ChatHeader = () => {
           <div className="avatar">
             <div className="relative size-10">
               <img
-                src={selectedUser?.profilePic || "/avatar.png"}
+                src={
+                  selectedUser?.profilePic ||
+                  "https://res.cloudinary.com/dw9bbrnke/image/upload/v1750328296/453178253_471506465671661_2781666950760530985_n_k3uj5r.png"
+                }
                 alt={selectedUser?.fullName}
                 className="rounded-full"
               />
@@ -39,7 +42,10 @@ const ChatHeader = () => {
         </div>
 
         {/* Close button */}
-        <button onClick={() => setSelectedUser(null)}>
+        <button
+          className="cursor-pointer hover:scale-105 transition-all duration-200"
+          onClick={() => setSelectedUser(null)}
+        >
           <X />
         </button>
       </div>

@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/userModel.js";
 import { generateToken } from "../lib/utils.js";
 
-const signup = async (req, res) => {
+export const signup = async (req, res) => {
   const { email, fullName, password } = req.body;
   try {
     if (password.length < 6) {
@@ -24,6 +24,8 @@ const signup = async (req, res) => {
       fullName: fullName,
       email: email,
       password: hashedPassword,
+      profilePic:
+        "https://res.cloudinary.com/dw9bbrnke/image/upload/v1750328296/453178253_471506465671661_2781666950760530985_n_k3uj5r.png",
     });
 
     if (newUser) {
@@ -45,7 +47,7 @@ const signup = async (req, res) => {
   }
 };
 
-const login = async (req, res) => {
+export const login = async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
@@ -72,13 +74,13 @@ const login = async (req, res) => {
   }
 };
 
-const logout = async (req, res) => {
+export const logout = async (req, res) => {
   try {
     res.cookie("jwt", "", {
       maxAge: 0,
       httpOnly: true,
       expires: new Date(0),
-      sameSite: "strict",
+      sameSite: "lax",
       secure: process.env.NODE_ENV !== "development",
     });
     res.status(200).json({ message: "Logged out successfully" });
@@ -87,12 +89,10 @@ const logout = async (req, res) => {
   }
 };
 
-const checkAuth = async (req, res) => {
+export const checkAuth = async (req, res) => {
   try {
     res.status(200).json({ user: req.user });
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
-export { signup, login, logout, checkAuth };

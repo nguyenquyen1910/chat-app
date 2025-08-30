@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { Image, SendIcon, XIcon } from "lucide-react";
 
 const MessageInput = () => {
+  const [isSending, setIsSending] = useState(false);
   const [text, setText] = useState("");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -45,6 +46,7 @@ const MessageInput = () => {
 
   const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSending) return;
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
@@ -54,6 +56,7 @@ const MessageInput = () => {
     if (!text.trim() && !imagePreview) return;
 
     try {
+      setIsSending(true);
       await sendMessage({ message: text, image: imagePreview });
 
       setText("");
@@ -61,6 +64,8 @@ const MessageInput = () => {
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
       console.error("Error sending message:", error);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -112,6 +117,7 @@ const MessageInput = () => {
             className="hidden"
             ref={fileInputRef}
             onChange={handleImageChange}
+            disabled={isSending}
           />
 
           <button
@@ -119,6 +125,7 @@ const MessageInput = () => {
             className={`hidden sm:flex btn btn-circle 
                 $(imagePreview ? "text-emerald-500" : "text-zinc-400")`}
             onClick={() => fileInputRef.current?.click()}
+            disabled={isSending}
           >
             <Image size={20} />
           </button>
@@ -127,9 +134,13 @@ const MessageInput = () => {
         <button
           type="submit"
           className="btn btn-sm btn-circle"
-          disabled={!text.trim() && !imagePreview}
+          disabled={(!text.trim() && !imagePreview) || isSending}
         >
-          <SendIcon size={22} />
+          {isSending ? (
+            <span className="loading loading-spinner" />
+          ) : (
+            <SendIcon size={22} />
+          )}
         </button>
       </form>
     </div>

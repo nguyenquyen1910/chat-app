@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { AxiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { io, Socket } from "socket.io-client";
+import { useChatStore } from "./useChatStore";
 
 const BASE_URL =
   import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
@@ -52,10 +53,12 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const res = await AxiosInstance.get("/auth/check");
       set({ authUser: res.data.user });
+      useChatStore.getState().setSelectedUser(res.data.user);
       get().connectSocket();
     } catch (error) {
       console.log(error);
       set({ authUser: null });
+      useChatStore.getState().resetChatStore();
     } finally {
       set({ isCheckingAuth: false });
     }
@@ -66,6 +69,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ isSigningUp: true });
       const res = await AxiosInstance.post("/auth/signup", data);
       set({ authUser: res.data });
+      useChatStore.getState().resetChatStore();
       toast.success("Signup successful");
       get().connectSocket();
     } catch (error) {
@@ -81,6 +85,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ isLoggingIn: true });
       const res = await AxiosInstance.post("/auth/login", data);
       set({ authUser: res.data });
+      useChatStore.getState().resetChatStore();
       toast.success("Login successful");
       get().connectSocket();
     } catch (error) {
@@ -96,6 +101,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       await AxiosInstance.post("/auth/logout");
       get().disconnectSocket();
       set({ authUser: null });
+      useChatStore.getState().resetChatStore();
       toast.success("Logged out successfully");
     } catch (error) {
       console.log(error);
