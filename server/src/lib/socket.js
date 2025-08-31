@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import http from "http";
 import express from "express";
+import User from "../models/userModel.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -21,10 +22,32 @@ const userSocketMap = {}; // {userId: socketId}
 const typingUsers = {}; // {roomId: Set of userIds}
 
 io.on("connection", (socket) => {
-  console.log("A user connected", socket.id);
-
   const userId = socket.handshake.query.userId;
-  if (userId) userSocketMap[userId] = socket.id;
+
+  // Validate userId
+  if (!userId) {
+    socket.disconnect();
+    return;
+  }
+
+  // Remove old connection if exists
+  if (userSocketMap[userId]) {
+    const oldSocketId = userSocketMap[userId];
+    const oldSocket = io.sockets.sockets.get(oldSocketId);
+    if (oldSocket) {
+      oldSocket.disconnect();
+    }
+  }
+
+  userSocketMap[userId] = socket.id;
+  User.findByIdAndUpdate(userId, {
+    isOnline: true,
+    lastSeen: new Date(),
+  })
+    .exec()
+    .catch((error) => {
+      console.log("Error updating user online status:", error.message);
+    });
 
   // io.emit() is used to send events to all the connected clients
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
@@ -32,22 +55,22 @@ io.on("connection", (socket) => {
   // Join room
   socket.on("join_room", (roomId) => {
     socket.join(roomId);
-    console.log(`User ${socket.id} joined room ${roomId}`);
   });
 
   // Leave room
   socket.on("leave_room", (roomId) => {
     socket.leave(roomId);
-    console.log(`User ${socket.id} left room ${roomId}`);
   });
 
   // Typing
   socket.on("typing_start", (data) => {
     const { roomId, userId } = data;
+
     if (!typingUsers[roomId]) {
       typingUsers[roomId] = new Set();
     }
     typingUsers[roomId].add(userId);
+
     socket.to(roomId).emit("user_typing", {
       roomId,
       userId,
@@ -57,6 +80,7 @@ io.on("connection", (socket) => {
 
   socket.on("typing_stop", (data) => {
     const { roomId, userId } = data;
+
     if (typingUsers[roomId]) {
       typingUsers[roomId].delete(userId);
       if (typingUsers[roomId].size === 0) {
@@ -82,7 +106,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("A user disconnected", socket.id);
+    User.findByIdAndUpdate(userId, {
+      isOnline: false,
+      lastSeen: new Date(),
+    }).exec();
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });

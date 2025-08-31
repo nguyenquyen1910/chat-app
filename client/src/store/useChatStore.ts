@@ -13,6 +13,8 @@ interface UserData {
   email: string;
   profilePic: string;
   createdAt: string;
+  isOnline?: boolean;
+  lastSeen?: string | Date;
   lastMessage?: {
     text: string;
     image: string | null;
@@ -76,6 +78,7 @@ interface ChatStore {
   loadLastMessages: () => Promise<void>;
   initializeChat: () => void;
   resetChatStore: () => void;
+  refreshUnreadCounts: () => Promise<void>;
 }
 
 const initialChatState = {
@@ -115,7 +118,6 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     // Join new room
     if (user) {
       socket?.emit("join_room", user._id);
-      get().markAllMessageAsRead(user._id);
     }
 
     set({
@@ -127,21 +129,31 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     });
 
     if (get().hasInitializedChat && user) {
-      localStorage.setItem("selectedUserId", user._id);
+      const me = useAuthStore.getState().authUser?._id;
+      if (user._id !== me) {
+        localStorage.setItem("selectedUserId", user._id);
+      } else {
+        localStorage.removeItem("selectedUserId");
+      }
     }
   },
 
   // Initialize chat
   initializeChat: () => {
     const savedUserId = localStorage.getItem("selectedUserId");
-    if (savedUserId) {
-      const { users } = get();
+    const { users } = get();
+    const me = useAuthStore.getState().authUser?._id;
+
+    if (savedUserId && savedUserId !== me && users.length > 0) {
       const user = users.find((u) => u._id === savedUserId);
       if (user) {
         set({ selectedUser: user, hasInitializedChat: true });
         return;
+      } else {
+        localStorage.removeItem("selectedUserId");
       }
     }
+
     set({ hasInitializedChat: true });
   },
 
@@ -291,16 +303,22 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     socket.off("user_typing");
     socket.off("message_read");
     socket.off("thread_read");
+    socket.off("all_messages_read");
     socket.off("conversation_updated");
+
+    const me = useAuthStore.getState().authUser?._id;
+    const roomId = [selectedUser._id, me].sort().join("-");
+    socket.emit("join_room", roomId);
     // Listen for new messages
     socket.on("newMessage", (newMessage: MessageData) => {
-      console.log("Received new message:", newMessage);
-      const me = useAuthStore.getState().authUser?._id;
+      const currentSelectedUser = get().selectedUser;
+
       const isForThisThread =
-        (newMessage.senderId === selectedUser._id &&
+        currentSelectedUser &&
+        ((newMessage.senderId === currentSelectedUser._id &&
           newMessage.receiverId === me) ||
-        (newMessage.senderId === me &&
-          newMessage.receiverId === selectedUser._id);
+          (newMessage.senderId === me &&
+            newMessage.receiverId === currentSelectedUser._id));
 
       if (isForThisThread) {
         set((state) => ({ messages: [...state.messages, newMessage] }));
@@ -315,6 +333,7 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     socket.on("thread_read", (data: { by: string; with: string }) => {
       const me = useAuthStore.getState().authUser?._id;
       const otherUserId = data.by === me ? data.with : data.by;
+
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg.receiverId === otherUserId ? { ...msg, isRead: true } : msg
@@ -328,7 +347,7 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
 
     // Listen for typing events
     socket.on("user_typing", (data) => {
-      if (data.roomId === selectedUser._id) {
+      if (data.roomId === roomId && data.userId !== me) {
         set((state) => ({
           typingUsers: data.isTyping
             ? [
@@ -353,7 +372,6 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
 
     // Listen for all messages read events
     socket.on("all_messages_read", (data: { by: string; with: string }) => {
-      console.log("All messages read event:", data);
       const me = useAuthStore.getState().authUser?._id;
 
       if (data.by === me && data.with === selectedUser._id) {
@@ -380,7 +398,7 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
         };
         incUnreadFor: string;
       }) => {
-        const { users, unreadCountByUserId } = get();
+        const { users } = get();
         const me = useAuthStore.getState().authUser?._id;
 
         const updatedUsers = users.map((user) => {
@@ -393,11 +411,11 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
           return user;
         });
 
-        let updatedUnreadCount = { ...unreadCountByUserId };
+        let updatedUnreadCount = { ...get().unreadCountByUserId };
         if (data.incUnreadFor === me) {
           updatedUnreadCount = {
-            ...unreadCountByUserId,
-            [data.with]: (unreadCountByUserId[data.with] || 0) + 1,
+            ...updatedUnreadCount,
+            [data.with]: (updatedUnreadCount[data.with] || 0) + 1,
           };
         }
 
@@ -432,10 +450,11 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     const { socket } = useAuthStore.getState();
 
     if (selectedUser && socket) {
-      console.log("Sending typing start");
+      const me = useAuthStore.getState().authUser?._id;
+      const roomId = [selectedUser._id, me].sort().join("-");
       socket.emit("typing_start", {
-        roomId: selectedUser._id,
-        userId: useAuthStore.getState().authUser?._id,
+        roomId: roomId,
+        userId: me,
       });
     }
   },
@@ -448,10 +467,11 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     const { socket } = useAuthStore.getState();
 
     if (selectedUser && socket) {
-      console.log("Sending typing stop");
+      const me = useAuthStore.getState().authUser?._id;
+      const roomId = [selectedUser._id, me].sort().join("-");
       socket.emit("typing_stop", {
-        roomId: selectedUser._id,
-        userId: useAuthStore.getState().authUser?._id,
+        roomId: roomId,
+        userId: me,
       });
     }
   },
@@ -504,6 +524,25 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
       }
     } catch (error) {
       console.log("error in loadLastMessages:", error);
+    }
+  },
+
+  refreshUnreadCounts: async () => {
+    try {
+      const res = await AxiosInstance.get("/messages/users");
+      const users = res.data;
+
+      const unreadCountByUserId: Record<string, number> = {};
+      users.forEach((user: UserData) => {
+        unreadCountByUserId[user._id] = user.unreadCount || 0;
+      });
+
+      set({
+        users: users,
+        unreadCountByUserId: unreadCountByUserId,
+      });
+    } catch (error) {
+      console.log("error in refreshUnreadCounts:", error);
     }
   },
 

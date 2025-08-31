@@ -53,7 +53,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const res = await AxiosInstance.get("/auth/check");
       set({ authUser: res.data.user });
-      useChatStore.getState().setSelectedUser(res.data.user);
       get().connectSocket();
     } catch (error) {
       console.log(error);
@@ -110,25 +109,51 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   connectSocket: () => {
-    const { authUser } = get();
-    if (!authUser || get().socket?.connected) return;
+    const { authUser, socket } = get();
+    if (!authUser) return;
+    if (socket?.connected) return;
 
-    const socket = io(BASE_URL, {
+    if (socket) {
+      socket.disconnect();
+    }
+
+    const newSocket = io(BASE_URL, {
       query: {
         userId: authUser._id,
       },
+      transports: ["websocket", "polling"],
+      timeout: 20000,
     });
-    socket.connect();
 
-    set({ socket: socket });
-
-    socket.on("getOnlineUsers", (userIds) => {
+    newSocket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
     });
+
+    set({ socket: newSocket });
+
+    const pingInterval = setInterval(async () => {
+      try {
+        await AxiosInstance.patch("/users/last-seen");
+      } catch (error) {
+        console.log("error in pingInterval:", error);
+      }
+    }, 60000);
+
+    newSocket.on("disconnect", () => {
+      clearInterval(pingInterval);
+    });
+
+    return () => {
+      clearInterval(pingInterval);
+    };
   },
 
   disconnectSocket: () => {
-    if (get().socket?.connected) get().socket?.disconnect();
+    const { socket } = get();
+    if (socket?.connected) {
+      socket.disconnect();
+      set({ socket: null });
+    }
   },
 }));
 

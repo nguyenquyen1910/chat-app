@@ -57,3 +57,15 @@ export const updateFullName = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+export const updateLastSeen = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      lastSeen: new Date(),
+    });
+    res.status(200).json({ message: "Last seen updated successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};

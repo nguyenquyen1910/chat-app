@@ -8,11 +8,28 @@ import { useEffect } from "react";
 const HomePage = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
-  const { selectedUser, setSelectedUser, users, hasInitializedChat } =
-    useChatStore();
+  const {
+    selectedUser,
+    setSelectedUser,
+    users,
+    hasInitializedChat,
+    initializeChat,
+    unsubcribeFromMessage,
+    getUsers,
+  } = useChatStore();
 
   useEffect(() => {
-    if (userId && users.length > 0 && !hasInitializedChat) {
+    getUsers();
+  }, [getUsers]);
+
+  useEffect(() => {
+    if (users.length > 0 && !hasInitializedChat) {
+      initializeChat();
+    }
+  }, [users, hasInitializedChat, initializeChat]);
+
+  useEffect(() => {
+    if (userId && users.length > 0 && hasInitializedChat) {
       const user = users.find((u) => u._id === userId);
       if (user) {
         setSelectedUser(user);
@@ -25,6 +42,10 @@ const HomePage = () => {
       navigate(`/chat/${selectedUser._id}`, { replace: true });
     }
   }, [selectedUser, hasInitializedChat, navigate]);
+
+  useEffect(() => {
+    return () => unsubcribeFromMessage();
+  }, [unsubcribeFromMessage]);
 
   return (
     <div className="h-screen bg-base-200">

@@ -24,13 +24,6 @@ export const getUsersForSidebar = async (req, res) => {
           ? c.unreadCount.get(me) || 0
           : (c.unreadCount && c.unreadCount[me]) || 0;
 
-      console.log("Conversation debug:", {
-        conversation: c,
-        me,
-        other,
-        unreadCount: unreadCount,
-      });
-
       convByOther.set(other, {
         lastMessage: c.lastMessage || null,
         unreadCount: unreadCount,
@@ -45,6 +38,8 @@ export const getUsersForSidebar = async (req, res) => {
         email: u.email,
         profilePic: u.profilePic,
         createdAt: u.createdAt,
+        isOnline: u.isOnline,
+        lastSeen: u.lastSeen,
         lastMessage: meta?.lastMessage || null,
         unreadCount: meta?.unreadCount || 0,
       };
@@ -210,7 +205,6 @@ export const markMessageAsRead = async (req, res) => {
   try {
     const { messageId } = req.params;
     const userId = req.user._id;
-    console.log("messageId", messageId);
 
     const updated = await Message.findOneAndUpdate(
       { senderId: messageId, receiverId: userId },

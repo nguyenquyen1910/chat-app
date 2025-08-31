@@ -1,18 +1,35 @@
 import useAuthStore from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import { X } from "lucide-react";
+import { formatLastSeen } from "../lib/utils";
 
 const ChatHeader = () => {
   const { selectedUser, setSelectedUser } = useChatStore();
   const { onlineUsers } = useAuthStore();
+
+  const handleCloseChat = () => {
+    setSelectedUser(null);
+    localStorage.removeItem("selectedUserId");
+  };
+
+  const getStatusText = () => {
+    if (onlineUsers.includes(selectedUser?._id || "")) {
+      return "Online";
+    }
+
+    if (selectedUser?.lastSeen) {
+      const lastSeenText = formatLastSeen(selectedUser.lastSeen);
+      return lastSeenText || "Offline";
+    }
+  };
 
   return (
     <div className="p-2.5 border-b border-base-300">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Avatar */}
-          <div className="avatar">
-            <div className="relative size-10">
+          <div className="relative avatar">
+            <div className="size-10">
               <img
                 src={
                   selectedUser?.profilePic ||
@@ -33,18 +50,14 @@ const ChatHeader = () => {
           {/* User info */}
           <div>
             <h3 className="font-medium">{selectedUser?.fullName}</h3>
-            <p className="text-sm text-base-content/70">
-              {onlineUsers.includes(selectedUser?._id || "")
-                ? "Online"
-                : "Offline"}
-            </p>
+            <p className="text-sm text-base-content/70">{getStatusText()}</p>
           </div>
         </div>
 
         {/* Close button */}
         <button
           className="cursor-pointer hover:scale-105 transition-all duration-200"
-          onClick={() => setSelectedUser(null)}
+          onClick={handleCloseChat}
         >
           <X />
         </button>

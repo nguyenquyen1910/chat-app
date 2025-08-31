@@ -22,6 +22,9 @@ const ChatContainer = () => {
   const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef<HTMLDivElement>(null);
 
+  const isSelectedUserTyping =
+    selectedUser && typingUsers.includes(selectedUser._id);
+
   useEffect(() => {
     if (!selectedUser?._id || !socket?.connected) return;
     getMessages(selectedUser._id);
@@ -104,11 +107,26 @@ const ChatContainer = () => {
           </div>
         ))}
         {/* Typing Indicator */}
-        {typingUsers.length > 0 && selectedUser && (
-          <div className="flex justify-start">
-            <TypingIndicator />
+        {isSelectedUserTyping && (
+          <div className="chat chat-start">
+            <div className="chat-image avatar">
+              <div className="size-10 rounded-full">
+                <img
+                  src={
+                    selectedUser?.profilePic ||
+                    "https://res.cloudinary.com/dw9bbrnke/image/upload/v1750328296/453178253_471506465671661_2781666950760530985_n_k3uj5r.png"
+                  }
+                  alt="profile pic"
+                />
+              </div>
+            </div>
+            <div className="chat-bubble">
+              <TypingIndicator />
+            </div>
           </div>
         )}
+
+        <div ref={messageEndRef} />
       </div>
 
       <MessageInput />

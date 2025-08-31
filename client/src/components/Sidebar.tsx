@@ -3,8 +3,8 @@ import { useChatStore } from "../store/useChatStore";
 import SidebarSkeleton from "./skeleton/SidebarSkeleton";
 import { Users } from "lucide-react";
 import useAuthStore from "../store/useAuthStore";
-import { getHourAndMinute } from "../lib/utils";
 import { useNavigate } from "react-router-dom";
+import { getHourAndMinute, formatLastSeen } from "../lib/utils";
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -42,6 +42,12 @@ const Sidebar = () => {
     return isOwnMessage
       ? `You: ${user.lastMessage.text}`
       : user.lastMessage.text;
+  };
+
+  const formatUnreadCount = (count: number) => {
+    if (count < 0) return "";
+    if (count > 10) return "10+";
+    return count.toString();
   };
 
   const filteredUsers = showOnlineOnly
@@ -134,7 +140,7 @@ const Sidebar = () => {
 
             {(unreadCountByUserId[user._id] || 0) > 0 && (
               <span className="ml-auto inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-primary text-primary-content text-xs">
-                {unreadCountByUserId[user._id]}
+                {formatUnreadCount(unreadCountByUserId[user._id])}
               </span>
             )}
           </button>
