@@ -13,12 +13,28 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      required: function () {
+        return !this.googleId && !this.facebookId;
+      },
       minLength: 6,
     },
     profilePic: {
       type: String,
       default: "",
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    facebookId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    isVerify: {
+      type: Boolean,
+      default: false,
     },
     lastSeen: {
       type: Date,

@@ -24,6 +24,7 @@ interface AuthStore {
   signup: (data: SignupData) => Promise<void>;
   login: (data: LoginData) => Promise<void>;
   logout: () => Promise<void>;
+  checkOAuthCallback: () => Promise<void>;
   socket: Socket | null;
   onlineUsers: string[];
   connectSocket: () => void;
@@ -105,6 +106,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } catch (error) {
       console.log(error);
       toast.error("Something went wrong");
+    }
+  },
+
+  checkOAuthCallback: async () => {
+    const urlParam = new URLSearchParams(window.location.search);
+    const authStatus = urlParam.get("auth");
+
+    if (authStatus === "success") {
+      await get().checkAuth();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (urlParam.get("error") === "oauth_failed") {
+      toast.error("OAuth login failed");
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   },
 

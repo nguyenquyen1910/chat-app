@@ -8,9 +8,22 @@ import { normalizeParticipants } from "../lib/conversation.js";
 export const getUsersForSidebar = async (req, res) => {
   try {
     const me = String(req.user._id);
+    const { q = "" } = req.query;
+
+    const userCond = {
+      _id: { $ne: me },
+      ...(q
+        ? {
+            $or: [
+              { fullName: { $regex: q, $options: "i" } },
+              { email: { $regex: q, $options: "i" } },
+            ],
+          }
+        : {}),
+    };
 
     const [users, conversations] = await Promise.all([
-      User.find({ _id: { $ne: me } }).select("-password"),
+      User.find(userCond).select("-password"),
       Conversation.find({ participants: me }).lean(),
     ]);
 

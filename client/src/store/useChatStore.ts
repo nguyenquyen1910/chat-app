@@ -66,7 +66,7 @@ interface ChatStore {
 
   // Actions
   setSelectedUser: (user: UserData | null) => void;
-  getUsers: () => Promise<void>;
+  getUsers: (params: { q?: string }) => Promise<void>;
   getMessages: (userId: string) => Promise<void>;
   sendMessage: (messageData: NewMessagePayload) => Promise<void>;
   markMessageAsRead: (messageId: string) => Promise<void>;
@@ -160,24 +160,20 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
   /**
    * Lấy danh sách tất cả users có thể chat
    */
-  getUsers: async () => {
-    set({ isUsersLoading: true });
+  getUsers: async (params?: { q?: string; silent?: boolean }) => {
+    if (!params?.silent) set({ isUsersLoading: true });
     try {
-      const res = await AxiosInstance.get("/messages/users");
+      const res = await AxiosInstance.get("/messages/users", {
+        params: { q: params?.q },
+      });
       set({ users: res.data });
       const unreadMap: Record<string, number> = {};
-      res.data.forEach((user: UserData) => {
-        unreadMap[user._id] = user.unreadCount;
+      res.data.forEach((user: any) => {
+        unreadMap[user._id] = user.unreadCount || 0;
       });
       set({ unreadCountByUserId: unreadMap });
-    } catch (error) {
-      console.log("error in getUsers:", error);
-      const errMsg =
-        (error as AxiosError<{ message: string }>)?.response?.data?.message ||
-        "Something went wrong";
-      toast.error(errMsg);
     } finally {
-      set({ isUsersLoading: false });
+      if (!params?.silent) set({ isUsersLoading: false });
     }
   },
 

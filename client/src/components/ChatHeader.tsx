@@ -2,14 +2,21 @@ import useAuthStore from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import { X } from "lucide-react";
 import { formatLastSeen } from "../lib/utils";
+import { useNavigate } from "react-router-dom";
 
 const ChatHeader = () => {
   const { selectedUser, setSelectedUser } = useChatStore();
   const { onlineUsers } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleCloseChat = () => {
     setSelectedUser(null);
     localStorage.removeItem("selectedUserId");
+  };
+
+  const handleOpenProfile = () => {
+    if (!selectedUser) return;
+    navigate(`/profile/${selectedUser._id}`);
   };
 
   const getStatusText = () => {
@@ -28,7 +35,10 @@ const ChatHeader = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Avatar */}
-          <div className="relative avatar">
+          <div
+            className="relative avatar cursor-pointer"
+            onClick={handleOpenProfile}
+          >
             <div className="size-10">
               <img
                 src={
@@ -48,7 +58,7 @@ const ChatHeader = () => {
           </div>
 
           {/* User info */}
-          <div>
+          <div className="cursor-pointer" onClick={handleOpenProfile}>
             <h3 className="font-medium">{selectedUser?.fullName}</h3>
             <p className="text-sm text-base-content/70">{getStatusText()}</p>
           </div>

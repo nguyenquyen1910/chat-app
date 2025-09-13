@@ -3,6 +3,8 @@ import { useState } from "react";
 import useAuthStore from "../store/useAuthStore";
 import AuthImagePattern from "../components/AuthImagePattern";
 import { Link } from "react-router-dom";
+import { FcGoogle } from "react-icons/fc";
+import { FaFacebook } from "react-icons/fa";
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -12,6 +14,10 @@ const LoginPage = () => {
   });
 
   const { login, isLoggingIn } = useAuthStore();
+
+  const handleOAuthLogin = (provider: "google" | "facebook") => {
+    window.location.href = `http://localhost:5001/api/auth/${provider}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,7 +54,7 @@ const LoginPage = () => {
                 </div>
                 <input
                   type="email"
-                  className={`input input-bordered w-full pl-10`}
+                  className={`input input-bordered w-full pl-10 rounded-lg`}
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) =>
@@ -68,7 +74,7 @@ const LoginPage = () => {
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
-                  className={`input input-bordered w-full pl-10`}
+                  className={`input input-bordered w-full pl-10 rounded-lg`}
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) =>
@@ -91,7 +97,7 @@ const LoginPage = () => {
 
             <button
               type="submit"
-              className="btn btn-primary w-full"
+              className="btn btn-primary w-full rounded-lg"
               disabled={isLoggingIn}
             >
               {isLoggingIn ? (
@@ -112,6 +118,23 @@ const LoginPage = () => {
                 Create account
               </Link>
             </p>
+          </div>
+
+          <div className="flex justify-between items-center gap-2">
+            <button
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 input input-bordered rounded-lg hover:bg-primary transition-colors cursor-pointer"
+              onClick={() => handleOAuthLogin("google")}
+            >
+              <FcGoogle className="size-5" />
+              <span>Google</span>
+            </button>
+            <button
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 input input-bordered rounded-lg hover:bg-primary transition-colors cursor-pointer"
+              onClick={() => handleOAuthLogin("facebook")}
+            >
+              <FaFacebook className="size-5 text-blue-600" />
+              <span>Facebook</span>
+            </button>
           </div>
         </div>
       </div>

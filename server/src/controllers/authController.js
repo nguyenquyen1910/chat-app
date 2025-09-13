@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import User from "../models/userModel.js";
 import { generateToken } from "../lib/utils.js";
+import passport from "passport";
 
 export const signup = async (req, res) => {
   const { email, fullName, password } = req.body;
@@ -95,4 +96,54 @@ export const checkAuth = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error" });
   }
+};
+
+export const googleAuth = (req, res, next) => {
+  passport.authenticate("google", { scope: ["profile", "email"] })(
+    req,
+    res,
+    next
+  );
+};
+
+export const googleCallback = (req, res, next) => {
+  passport.authenticate("google", { failureRedirect: "/login" })(
+    req,
+    res,
+    (err) => {
+      if (err) {
+        console.log("OAuth callback error:", err);
+        return res.redirect(`http://localhost:5173?error=oauth_failed`);
+      }
+
+      try {
+        generateToken(req.user._id, res);
+        res.redirect(`http://localhost:5173?auth=success`);
+      } catch (tokenError) {
+        console.log("Token generation error:", tokenError);
+        res.redirect(`http://localhost:5173?error=token_failed`);
+      }
+    }
+  );
+};
+
+export const facebookAuth = (req, res, next) => {
+  passport.authenticate("facebook", { scope: ["email"] })(req, res, next);
+};
+
+export const facebookCallback = (req, res, next) => {
+  passport.authenticate("facebook", { failureRedirect: "/login" })(
+    req,
+    res,
+    (err) => {
+      if (err) {
+        console.log("OAuth callback error:", err);
+        return res.redirect(`http://localhost:5173?error=oauth_failed`);
+      }
+
+      generateToken(req.user._id, res);
+
+      res.redirect(`http://localhost:5173?auth=success`);
+    }
+  );
 };
